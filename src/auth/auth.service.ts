@@ -9,6 +9,7 @@ import { PrismaService } from "../shared/prisma.service";
 import { GenerateVerificationCodeDto } from "./dto/generate-verification-code.dto";
 import { SignUpDto } from "./dto/sign-up.dto";
 import { SignInDto } from "./dto/sign-in.dto";
+import { compare, hash } from "bcrypt";
 
 @Injectable()
 export class AuthService {
@@ -83,7 +84,7 @@ export class AuthService {
       data: {
         id: dto.wovId,
         email: dto.email,
-        password: dto.password,
+        password: await hash(dto.password, 10),
       },
     });
 
@@ -93,14 +94,19 @@ export class AuthService {
   }
 
   async signIn(dto: SignInDto) {
-    if (
-      !(await this.prismaService.account.findFirst({
-        where: { email: dto.email, password: dto.password },
-      }))
-    ) {
+    const account = await this.prismaService.account.findFirst({
+      where: {
+        email: dto.email,
+      },
+    });
+    if (!account) {
       throw new UnauthorizedException("Invalid credentials");
     }
 
-    return "signed in";
+    if (!(await compare(dto.password, account.password))) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
+    return "ok";
   }
 }

@@ -11,6 +11,7 @@ export class SignUpDto {
   @IsEmail()
   email: string;
 
+  // TODO: validate password
   @IsString()
   password: string;
 }
