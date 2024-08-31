@@ -11,7 +11,7 @@ model VerificationCode {
   wovId      String   
   code       String   @id
   createdAt  DateTime @default(now())
-  validUntil DateTime
+  expiresIn  Int 
 }
 
 model Account {

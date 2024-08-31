@@ -26,16 +26,25 @@ export class AuthService {
     }
 
     // code valid for 15 minutes
-    const validUntil = new Date(Date.now() + 15 * 60 * 1000);
     const code = `<${randomBytes(
       Math.ceil(this.envService.get("AUTH_CODE_LENGTH") / 2),
     )
       .toString("hex")
       .slice(0, this.envService.get("AUTH_CODE_LENGTH"))}>`;
 
-    return await this.prismaService.verificationCode.create({
-      data: { wovId: dto.wovId, code, validUntil },
+    await this.prismaService.verificationCode.create({
+      data: {
+        wovId: dto.wovId,
+        code: await hash(code, 10),
+        expiresIn: this.envService.get("AUTH_CODE_TTL"),
+      },
     });
+
+    return {
+      wovId: dto.wovId,
+      code,
+      expiresIn: this.envService.get("AUTH_CODE_TTL"),
+    };
   }
 
   async signUp(dto: SignUpDto): Promise<void> {
@@ -47,12 +56,12 @@ export class AuthService {
 
     // Check if code is valid
     const code = await this.prismaService.verificationCode.findFirst({
-      where: { wovId: dto.wovId, code: dto.code },
+      where: { wovId: dto.wovId },
     });
-    if (!code) {
-      throw new BadRequestException("Invalid code: Not found");
+    if (!code || !(await compare(dto.code, code.code))) {
+      throw new BadRequestException("Invalid code");
     }
-    if (code.validUntil.getTime() < Date.now()) {
+    if (Date.now() + code.expiresIn < Date.now()) {
       await this.prismaService.verificationCode.delete({ where: code });
       throw new BadRequestException("Invalid code: Expired");
     }
